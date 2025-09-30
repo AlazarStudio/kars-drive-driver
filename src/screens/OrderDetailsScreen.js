@@ -1,6 +1,16 @@
 // src/screens/OrderDetailsScreen.js
 import React, { useMemo, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from "react-native";
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    Image,
+    Modal,
+    Pressable,
+    TextInput,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -9,7 +19,15 @@ const vehicleClassLabel = { economy: "Эконом", comfort: "Комфорт", 
 const paymentLabel = { cash: "Наличные", card: "Картой", invoice: "Безнал" };
 
 const fmt = (iso) =>
-    iso ? new Date(iso).toLocaleString("ru-RU", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+    iso
+        ? new Date(iso).toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        })
+        : "—";
 
 const diffMinutes = (fromIso, toIso) => {
     if (!fromIso || !toIso) return null;
@@ -19,14 +37,22 @@ const diffMinutes = (fromIso, toIso) => {
 };
 
 function Chip({ children }) {
-    return <View style={styles.chip}><Text style={{ color: "#0D1220" }}>{children}</Text></View>;
+    return (
+        <View style={styles.chip}>
+            <Text style={{ color: "#0D1220" }}>{children}</Text>
+        </View>
+    );
 }
 
-function PersonRow({ role, person, onChat  }) {
+function PersonRow({ role, person, onChat }) {
     if (!person) return null;
     return (
         <View style={styles.personRow}>
-            {person.avatar ? <Image source={{ uri: person.avatar }} style={styles.personAvatar} /> : <View style={[styles.personAvatar, { backgroundColor: "#E9EEF5" }]} />}
+            {person.avatar ? (
+                <Image source={{ uri: person.avatar }} style={styles.personAvatar} />
+            ) : (
+                <View style={[styles.personAvatar, { backgroundColor: "#E9EEF5" }]} />
+            )}
             <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.role}>{role}</Text>
                 <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap" }}>
@@ -40,7 +66,7 @@ function PersonRow({ role, person, onChat  }) {
                 </View>
             </View>
             <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity style={styles.roundBtn} onPress={onChat} >
+                <TouchableOpacity style={styles.roundBtn} onPress={onChat}>
                     <Ionicons name="chatbubble-ellipses-outline" size={18} color="#0D1220" />
                 </TouchableOpacity>
             </View>
@@ -66,9 +92,9 @@ export default function OrderDetailsScreen({ route, navigation }) {
 
     // время: изначально только orderedAt (время создания заявки)
     const [times, setTimes] = useState({
-        orderedAt: order?.date || null,           // уже есть
-        acceptedAt: order?.acceptedAt || null,    // появится после назначения
-        orderAcceptedAt: order?.orderAcceptedAt || null,    // появится после назначения
+        orderedAt: order?.date || null,
+        acceptedAt: order?.acceptedAt || null,
+        orderAcceptedAt: order?.orderAcceptedAt || null,
         arrivedPickupAt: order?.arrivedPickupAt || null,
         departedAt: order?.departedAt || null,
         arrivedDropoffAt: order?.arrivedDropoffAt || null,
@@ -86,6 +112,45 @@ export default function OrderDetailsScreen({ route, navigation }) {
         [times.departedAt, times.arrivedDropoffAt]
     );
 
+    // ====== Состояния для отмены ======
+    const [cancelVisible, setCancelVisible] = useState(false);
+    const [selectedReason, setSelectedReason] = useState(null);
+    const [customReason, setCustomReason] = useState("");
+
+    const reasons = [
+        { key: "tech", label: "Технические неполадки" },
+        { key: "busy", label: "Слишком загружен" },
+        { key: "rating", label: "Рейтинг клиента" },
+        { key: "nosignal", label: "Не удалось связаться с клиентом" },
+        { key: "other", label: "Другое" },
+    ];
+
+    const openCancel = () => {
+        setSelectedReason(null);
+        setCustomReason("");
+        setCancelVisible(true);
+    };
+    const closeCancel = () => setCancelVisible(false);
+
+    const confirmCancel = async () => {
+        // TODO: API отмены заказа с передачей причины
+        // await api.cancelOrder(order.id, { reason: selectedReason, comment: customReason });
+        closeCancel();
+        // Переход на главную
+        try {
+            navigation.navigate("Tabs", { screen: "Home" });
+        } catch {
+            navigation.goBack();
+        }
+    };
+
+    const acceptOrder = async () => {
+        navigation.navigate("Trip", { order });
+        // TODO: API принятия заказа
+        // await api.acceptOrder(order.id);
+        // Можно обновить times.orderAcceptedAt = now и/или показать тост
+    };
+
     if (!order) {
         return (
             <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -96,23 +161,14 @@ export default function OrderDetailsScreen({ route, navigation }) {
                     <Text style={styles.headerTitle}>Заявка</Text>
                     <View style={{ width: 26 }} />
                 </View>
-                <View style={{ padding: 16 }}><Text>Нет данных заявки.</Text></View>
+                <View style={{ padding: 16 }}>
+                    <Text>Нет данных заявки.</Text>
+                </View>
             </SafeAreaView>
         );
     }
 
-    const openPicker = () => {
-        navigation.navigate("DriverPicker", {
-            order,
-            onAssigned: ({ driver, acceptedAt }) => {
-                setAssignedDriver(driver);
-                setTimes((t) => ({ ...t, acceptedAt: acceptedAt || new Date().toISOString() }));
-            },
-        });
-    };
-
     const showTimelineTail = Boolean(times.acceptedAt); // остальные пункты показываем только после назначения
-
     const showRatings = ratings.byDriver != null || ratings.byPassenger != null;
 
     return (
@@ -126,15 +182,20 @@ export default function OrderDetailsScreen({ route, navigation }) {
                 <View style={{ width: 26 }} />
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+                showsVerticalScrollIndicator={false}
+            >
                 {/* Участники */}
                 {assignedDriver && (
                     <PersonRow
                         role="Водитель"
                         person={assignedDriver}
                         onChat={() =>
-                            navigation.navigate("Chat", { peer: { title: `Водитель • ${assignedDriver.name}`, id: assignedDriver.id } })
+                            navigation.navigate("Chat", {
+                                peer: { title: `Водитель • ${assignedDriver.name}`, id: assignedDriver.id },
+                            })
                         }
                     />
                 )}
@@ -142,7 +203,9 @@ export default function OrderDetailsScreen({ route, navigation }) {
                     role="Пассажир"
                     person={order.driver}
                     onChat={() =>
-                        navigation.navigate("Chat", { peer: { title: `Пассажир • ${order.driver?.name || ""}` } })
+                        navigation.navigate("Chat", {
+                            peer: { title: `Пассажир • ${order.driver?.name || ""}` },
+                        })
                     }
                 />
 
@@ -168,7 +231,9 @@ export default function OrderDetailsScreen({ route, navigation }) {
                     {order.requirements?.luggage?.items >= 0 && <Chip>{`Багаж: ${order.requirements.luggage.items}`}</Chip>}
                     {order.requirements?.luggage?.bulky && <Chip>Негабарит</Chip>}
                     {order.requirements?.pets && <Chip>С животными</Chip>}
-                    {order.requirements?.childSeats?.total > 0 && <Chip>{`Детк. кресла: ${order.requirements.childSeats.total}`}</Chip>}
+                    {order.requirements?.childSeats?.total > 0 && (
+                        <Chip>{`Детк. кресла: ${order.requirements.childSeats.total}`}</Chip>
+                    )}
                     {order.requirements?.accessibility?.wheelchair && <Chip>Инвалидная коляска</Chip>}
                     {order.requirements?.nonSmoking && <Chip>Некурящий водитель</Chip>}
                     {order.requirements?.airConditioner && <Chip>Кондиционер</Chip>}
@@ -195,13 +260,17 @@ export default function OrderDetailsScreen({ route, navigation }) {
 
                 {/* Комментарий и багаж */}
                 <Text style={styles.grayLabel}>Комментарий</Text>
-                <View style={styles.grayBox}><Text style={styles.grayText}>{order.requirements?.notes || order.comment || "—"}</Text></View>
+                <View style={styles.grayBox}>
+                    <Text style={styles.grayText}>{order.requirements?.notes || order.comment || "—"}</Text>
+                </View>
 
                 <Text style={styles.grayLabel}>Информация о багаже</Text>
-                <View style={styles.grayBox}><Text style={styles.grayText}>{order.baggage || "—"}</Text></View>
+                <View style={styles.grayBox}>
+                    <Text style={styles.grayText}>{order.baggage || "—"}</Text>
+                </View>
 
                 {/* Оценки поездки — только если есть */}
-                {showRatings && (
+                {(ratings.byDriver != null || ratings.byPassenger != null) && (
                     <>
                         <Text style={styles.sectionTitle}>Оценки поездки</Text>
                         {ratings.byDriver != null && (
@@ -220,12 +289,62 @@ export default function OrderDetailsScreen({ route, navigation }) {
                 )}
             </ScrollView>
 
-            {/* Кнопка */}
-            <View style={styles.footer}>
-                <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.9} onPress={openPicker}>
-                    <Text style={styles.primaryText}>{assignedDriver ? "Сменить водителя" : "Назначить водителя"}</Text>
+            {/* Нижняя панель действий */}
+            <View style={styles.bottomBar}>
+                <TouchableOpacity style={[styles.fullBtn, styles.rejectFull]} onPress={openCancel}>
+                    <Text style={styles.rejectText}>Отклонить</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.fullBtn, styles.acceptFull]} onPress={acceptOrder}>
+                    <Text style={styles.acceptText}>Принять заказ</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Модалка причины отмены */}
+            <Modal transparent animationType="fade" visible={cancelVisible} onRequestClose={closeCancel}>
+                <Pressable style={styles.backdrop} onPress={closeCancel} />
+                <View style={styles.sheet}>
+                    <Text style={styles.sheetTitle}>Причина отмены</Text>
+
+                    {reasons.map((r) => {
+                        const checked = selectedReason === r.key;
+                        return (
+                            <TouchableOpacity
+                                key={r.key}
+                                style={styles.reasonRow}
+                                onPress={() => setSelectedReason(r.key)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.reasonText}>{r.label}</Text>
+                                <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                                    {checked && <Ionicons name="checkmark" size={16} color="#fff" />}
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+
+                    {selectedReason === "other" && (
+                        <TextInput
+                            placeholder="Опишите причину"
+                            placeholderTextColor="#9AA4AD"
+                            value={customReason}
+                            onChangeText={setCustomReason}
+                            style={styles.input}
+                            multiline
+                        />
+                    )}
+
+                    <TouchableOpacity
+                        style={[
+                            styles.sheetButton,
+                            (!selectedReason || (selectedReason === "other" && !customReason.trim())) && { opacity: 0.6 },
+                        ]}
+                        disabled={!selectedReason || (selectedReason === "other" && !customReason.trim())}
+                        onPress={confirmCancel}
+                    >
+                        <Text style={styles.sheetButtonText}>Готово</Text>
+                    </TouchableOpacity>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -241,10 +360,15 @@ function Row({ label, value }) {
 
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: "#fff" },
+
     header: {
-        height: 48, paddingHorizontal: 12,
-        borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#E6EAF0",
-        flexDirection: "row", alignItems: "center", gap: 8,
+        height: 48,
+        paddingHorizontal: 12,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+        borderBottomColor: "#E6EAF0",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
     },
     headerTitle: { fontSize: 18, fontWeight: "700", color: "#0D1220" },
 
@@ -253,19 +377,54 @@ const styles = StyleSheet.create({
     personAvatar: { width: 40, height: 40, borderRadius: 20 },
     personName: { fontWeight: "700", color: "#0D1220" },
     rating: { marginLeft: 2, color: "#0D1220" },
-    roundBtn: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, borderColor: "#E6EAF0", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
+    roundBtn: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#fff",
+    },
 
-    routeCard: { borderWidth: 1, borderColor: "#E6EAF0", borderRadius: 12, padding: 12, backgroundColor: "#fff", marginTop: 8 },
+    routeCard: {
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        borderRadius: 12,
+        padding: 12,
+        backgroundColor: "#fff",
+        marginTop: 8,
+    },
     routeRow: { flexDirection: "row", alignItems: "center" },
     addr: { color: "#0D1220", flex: 1 },
     dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
     divider: { height: 1, backgroundColor: "#E6EAF0", marginVertical: 10 },
 
     sectionTitle: { marginTop: 14, marginBottom: 8, fontWeight: "700", color: "#0D1220" },
-    chip: { paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "#F1F3F6", borderWidth: 1, borderColor: "#E6EAF0", alignItems: "center", justifyContent: "center", marginRight: 8, marginBottom: 8 },
+    chip: {
+        paddingHorizontal: 10,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: "#F1F3F6",
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        alignItems: "center",
+        justifyContent: "center",
+        marginRight: 8,
+        marginBottom: 8,
+    },
 
     grayLabel: { color: "#8E98A3", fontSize: 12, fontWeight: "700", marginTop: 14, marginBottom: 6 },
-    grayBox: { backgroundColor: "#F4F6FA", borderRadius: 10, borderWidth: 1, borderColor: "#E6EAF0", minHeight: 44, paddingHorizontal: 12, justifyContent: "center" },
+    grayBox: {
+        backgroundColor: "#F4F6FA",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        minHeight: 44,
+        paddingHorizontal: 12,
+        justifyContent: "center",
+    },
     grayText: { color: "#6E7781" },
 
     timeline: { marginTop: 4 },
@@ -276,7 +435,100 @@ const styles = StyleSheet.create({
     rateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 6 },
     rateLabel: { color: "#0D1220" },
 
-    footer: { padding: 16, backgroundColor: "#fff", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E6EAF0" },
-    primaryBtn: { height: 52, borderRadius: 16, backgroundColor: "#2F6BFF", alignItems: "center", justifyContent: "center" },
-    primaryText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+    caption: { color: "#8E98A3", fontSize: 12 },
+    value: { color: "#0D1220", fontWeight: "600", marginTop: 2 },
+    actions: { flexDirection: "row", alignItems: "center", gap: 8 },
+
+    rejectBtn: {
+        backgroundColor: "#F3F4F6",
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 18,
+    },
+    rejectText: { color: "#0D1220", fontWeight: "600" },
+
+    acceptBtn: {
+        backgroundColor: "#2F6BFF",
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 18,
+    },
+    acceptText: { color: "#fff", fontWeight: "700" },
+
+    // Модалка отмены
+    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.25)" },
+    sheet: {
+        position: "absolute",
+        left: 16,
+        right: 16,
+        bottom: 20,
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 16,
+        shadowColor: "#000",
+        shadowOpacity: 0.12,
+        shadowRadius: 24,
+        shadowOffset: { width: 0, height: 12 },
+        elevation: 8,
+    },
+    sheetTitle: { fontSize: 18, fontWeight: "700", textAlign: "center", marginBottom: 8 },
+    reasonRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        paddingVertical: 10,
+    },
+    reasonText: { color: "#0D1220", fontSize: 16 },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: "#D1D5DB",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#fff",
+    },
+    checkboxChecked: { backgroundColor: "#0B0F10", borderColor: "#0B0F10" },
+    input: {
+        marginTop: 8,
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        borderRadius: 12,
+        padding: 10,
+        minHeight: 60,
+        textAlignVertical: "top",
+        color: "#0D1220",
+    },
+    sheetButton: {
+        marginTop: 12,
+        backgroundColor: "#2F6BFF",
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    sheetButtonText: { color: "#fff", textAlign: "center", fontWeight: "700", fontSize: 16 },
+    bottomBar: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        flexDirection: "row",
+        justifyContent: "space-between",
+        padding: 16,
+        paddingBottom: 32,
+        backgroundColor: "#fff",
+        borderTopWidth: 1,
+        borderTopColor: "#E6EAF0",
+    },
+    fullBtn: {
+        flex: 1,
+        height: 48,
+        borderRadius: 12,
+        alignItems: "center",
+        justifyContent: "center",
+        marginHorizontal: 4,
+    },
+    rejectFull: { backgroundColor: "#F3F4F6" },
+    acceptFull: { backgroundColor: "#2F6BFF" },
+
 });

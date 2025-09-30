@@ -7,6 +7,9 @@ import DriversScreen from "../screens/DriversScreen";
 import SupportScreen from "../screens/SupportScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import OrdersHistoryScreen from "../screens/OrdersHistoryScreen";
+
+
 
 const Tab = createBottomTabNavigator();
 
@@ -22,7 +25,7 @@ export default function Tabs() {
         tabBarIcon: ({ color, size, focused }) => {
           const map = {
             Home: focused ? "home" : "home-outline",
-            Drivers: focused ? "people" : "people-outline",
+            History: focused ? "time" : "time-outline",
             Support: focused ? "chatbubbles" : "chatbubbles-outline",
             Profile: focused ? "person" : "person-outline",
           };
@@ -32,7 +35,7 @@ export default function Tabs() {
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: "Главная" }} />
-      <Tab.Screen name="Drivers" component={DriversScreen} options={{ title: "Водители" }} />
+      <Tab.Screen name="History" component={OrdersHistoryScreen} options={{ title: "История" }} />
       <Tab.Screen name="Support" component={SupportScreen} options={{ title: "Поддержка" }} />
       <Tab.Screen name="Profile" component={ProfileScreen} options={{ title: "Профиль" }} />
     </Tab.Navigator>

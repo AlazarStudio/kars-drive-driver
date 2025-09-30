@@ -17,6 +17,11 @@ import SettingsScreen from "./src/screens/SettingsScreen";
 import OrderDetailsScreen from "./src/screens/OrderDetailsScreen";
 import DriverPickerScreen from "./src/screens/DriverPickerScreen";
 import ChatScreen from "./src/screens/ChatScreen";
+import RegisterScreen from "./src/screens/auth/RegisterScreen";
+import TripScreen from "./src/screens/TripScreen";
+
+import OrdersHistoryScreen from "./src/screens/OrdersHistoryScreen";
+import HistoryDetailsScreen from "./src/screens/HistoryDetailsScreen";
 
 // ---------- Логин ----------
 function LoginScreen({ navigation }) {
@@ -106,6 +111,11 @@ function LoginScreen({ navigation }) {
             >
               <Text style={styles.buttonText}>Войти</Text>
             </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate("Register")}>
+              <Text style={{ textAlign: "center", marginTop: 8 }}>
+                Ещё не зарегистрированы? <Text style={{ color: "#2563eb" }}>Регистрация</Text>
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
@@ -127,6 +137,11 @@ export default function App() {
           <Stack.Screen name="OrderDetails" component={OrderDetailsScreen} />
           <Stack.Screen name="DriverPicker" component={DriverPickerScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
+          <Stack.Screen name="Register" component={RegisterScreen} />
+          <Stack.Screen name="Trip" component={TripScreen} options={{ headerShown: false }} />
+          
+          <Stack.Screen name="OrdersHistoryScreen" component={OrdersHistoryScreen} />
+          <Stack.Screen name="HistoryDetails" component={HistoryDetailsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

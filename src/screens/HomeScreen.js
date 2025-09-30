@@ -1,27 +1,24 @@
 // src/screens/HomeScreen.js
-import React, { useState, useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
-    View, Text, StyleSheet, TextInput, FlatList,
-    TouchableOpacity, Image
+    View,
+    Text,
+    StyleSheet,
+    TextInput,
+    FlatList,
+    TouchableOpacity,
+    Image,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { ScrollView } from "react-native";
 
-const STATUSES = [
-    { key: "all", label: "Все" },
-    { key: "pending", label: "Ожидает обработки" },
-    { key: "assigned", label: "Назначен водитель" },
-    { key: "canceled", label: "Отменен" },
-    { key: "done", label: "Завершен" },
-];
-
+// 👇 Твой полный мок — без урезаний полей
 const MOCK = [
     {
         id: "1",
         status: "pending",
         from: "г. Черкесск, Ленина, 57В",
-        to: "г. Минеральные воды, Ленина, 51К1",
+        to: "г. Черкесск, Кавказская, 86",
         date: "2025-03-11T12:12:00+03:00",
         fromCoords: { lat: 44.2265, lng: 42.0461 },
         driver: { name: "Александр Александров", rating: 5.0, badge: "КВС", avatar: null },
@@ -43,9 +40,9 @@ const MOCK = [
     },
     {
         id: "2",
-        status: "assigned",
+        status: "pending",
         from: "г. Черкесск, Ленина, 57В",
-        to: "г. Минеральные воды, Ленина, 51К1",
+        to: "г. Минеральные воды, Ленина, 51",
         date: "2025-03-11T12:12:00+03:00",
         fromCoords: { lat: 44.2365, lng: 42.0561 },
         driver: { name: "Александр Александров", rating: 5.0, badge: "КВС", avatar: null },
@@ -67,80 +64,87 @@ const MOCK = [
     },
 ];
 
+// какие статусы считаем активными для верхнего синего блока
+const isActiveStatus = (s) => s === "assigned" || s === "active";
 
 export default function HomeScreen({ navigation }) {
-    const insets = useSafeAreaInsets();
     const [query, setQuery] = useState("");
-    const [active, setActive] = useState("all");
+    const [orders] = useState(MOCK);
 
-    const data = useMemo(() => {
-        const base = active === "all" ? MOCK : MOCK.filter(o => o.status === active);
-        if (!query.trim()) return base;
+    // ищем только первую активную
+    const activeOrder = useMemo(
+        () => orders.find((o) => isActiveStatus(o.status)),
+        [orders]
+    );
+
+    // остальные заявки (исключая активную)
+    const otherOrders = useMemo(() => {
+        const rest = orders.filter((o) => !isActiveStatus(o.status));
+        if (!query.trim()) return rest;
         const q = query.toLowerCase();
-        return base.filter(o => o.from.toLowerCase().includes(q) || o.to.toLowerCase().includes(q));
-    }, [active, query]);
+        return rest.filter(
+            (o) => o.from.toLowerCase().includes(q) || o.to.toLowerCase().includes(q)
+        );
+    }, [orders, query]);
 
-    const renderCard = ({ item }) => (
+    const renderOrder = ({ item }) => (
         <TouchableOpacity
-            activeOpacity={0.9}
-            onPress={() => navigation.navigate("OrderDetails", { order: item })}
+            activeOpacity={0.8}
             style={styles.card}
+            onPress={() => navigation.navigate("OrderDetails", { order: item })}
         >
-            <View style={styles.cardHeader}>
-                <View style={[
-                    styles.statusPill,
-                    item.status === "pending" && styles.pillYellow,
-                    item.status === "assigned" && styles.pillBlue,
-                    item.status === "canceled" && styles.pillRed,
-                    item.status === "done" && styles.pillGreen,
-                ]}>
-                    <Text style={styles.pillText}>
-                        {{
-                            pending: "Ожидает обработки",
-                            assigned: "Назначен водитель",
-                            canceled: "Отменен",
-                            done: "Завершен",
-                        }[item.status] || "—"}
+            <View style={styles.row}>
+                <Ionicons name="ellipse-outline" size={14} color="#111827" />
+                <Text style={styles.addrFrom} numberOfLines={1}>
+                    {item.from}
+                </Text>
+            </View>
+
+            <View style={[styles.row, { marginTop: 6 }]}>
+                <Ionicons name="ellipse" size={14} color="#2563eb" />
+                <Text style={styles.addrTo} numberOfLines={1}>
+                    {item.to}
+                </Text>
+            </View>
+
+            <View style={[styles.row, { marginTop: 10 }]}>
+                {/* Аватар может быть null */}
+                {item.driver?.avatar ? (
+                    <Image source={{ uri: item.driver.avatar }} style={styles.avatar} />
+                ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                        <Ionicons name="person" size={16} color="#9CA3AF" />
+                    </View>
+                )}
+                <Text style={styles.driverName} numberOfLines={1}>
+                    {item.driver?.name ?? "—"}
+                </Text>
+                {!!item.driver?.badge && (
+                    <Text style={styles.badge} numberOfLines={1}>
+                        {item.driver.badge}
                     </Text>
-                </View>
-                <Ionicons name="ellipsis-vertical" size={18} color="#9AA4AD" />
+                )}
+                {typeof item.driver?.rating === "number" && (
+                    <>
+                        <Ionicons name="star" size={14} color="#F5B000" style={{ marginLeft: 6 }} />
+                        <Text style={styles.rating}>{item.driver.rating.toFixed(1)}</Text>
+                    </>
+                )}
             </View>
 
-            <View style={{ gap: 8, marginTop: 8 }}>
-                <View style={styles.row}>
-                    <View style={[styles.dot, { backgroundColor: "#1A73E8" }]} />
-                    <Text style={styles.addr}>{item.from}</Text>
-                </View>
-                <View style={styles.row}>
-                    <View style={[styles.dot, { backgroundColor: "#0ABF53" }]} />
-                    <Text style={styles.addr}>{item.to}</Text>
-                </View>
-            </View>
-
-            <View style={[styles.row, { marginTop: 12 }]}>
-                <Image source={{ uri: item.driver.avatar }} style={styles.avatar} />
-                <Text style={styles.driverName}>{item.driver.name}  </Text>
-                <Text style={styles.badge}>{item.driver.badge}</Text>
-                <Ionicons name="star" size={14} color="#F5B000" style={{ marginLeft: 6 }} />
-                <Text style={styles.rating}>{item.driver.rating.toFixed(1)}</Text>
-            </View>
-
-            <Text style={styles.sectionTitle}>Информация о багаже</Text>
-            <View style={styles.noteBox}>
-                <Text style={styles.noteText}>{item.baggage}</Text>
-            </View>
-
-            <Text style={styles.date}>{item.date ? new Date(item.date).toLocaleString("ru-RU", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</Text>
+            <Text style={styles.meta} numberOfLines={1}>
+                {formatDate(item.date)} / {statusLabel(item.status)}
+            </Text>
         </TouchableOpacity>
     );
 
     return (
         <SafeAreaView style={styles.safe} edges={["top"]}>
             <View style={styles.container}>
-                {/* НЕпрокручиваемая шапка */}
-                <View style={[styles.header, { paddingTop: 8, paddingBottom: 8 }]}>
+                {/* Поиск + колокольчик */}
+                <View style={styles.header}>
                     <View style={styles.searchBox}>
-                        <Ionicons name="search-outline" size={18} color="#9AA4AD" />
+                        <Ionicons name="search-outline" size={18} color="#9AA4AD" style={{ marginRight: 8 }} />
                         <TextInput
                             placeholder="Поиск"
                             placeholderTextColor="#9AA4AD"
@@ -150,98 +154,167 @@ export default function HomeScreen({ navigation }) {
                         />
                     </View>
 
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={{ paddingRight: 16 }}
-                        style={{ marginTop: 12 }}
-                    >
-                        {STATUSES.map((s) => {
-                            const isActive = s.key === active;
-                            return (
-                                <TouchableOpacity
-                                    key={s.key}
-                                    onPress={() => setActive(s.key)}
-                                    style={[styles.chip, isActive && styles.chipActive]}
-                                >
-                                    <Text style={[styles.chipText, isActive && styles.chipTextActive]}>
-                                        {s.label}
-                                    </Text>
-                                </TouchableOpacity>
-                            );
-                        })}
-                    </ScrollView>
+                    <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+                        <Ionicons name="notifications-outline" size={22} color="#111827" />
+                    </TouchableOpacity>
                 </View>
 
-                {/* Прокручивается только список */}
+                {/* Активная заявка (assigned/active) */}
+                {activeOrder && (
+                    <View style={styles.activeCard}>
+                        <Text style={styles.activeEta}>{etaFromDate(activeOrder.date)}</Text>
+
+                        <View style={styles.row}>
+                            <Ionicons name="ellipse-outline" size={14} color="#fff" />
+                            <Text style={styles.activeFrom} numberOfLines={1}>
+                                {activeOrder.from}
+                            </Text>
+                        </View>
+
+                        <View style={[styles.row, { marginTop: 6 }]}>
+                            <Ionicons name="ellipse" size={14} color="#fff" />
+                            <Text style={styles.activeTo} numberOfLines={1}>
+                                {activeOrder.to}
+                            </Text>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.activeBtn}
+                            activeOpacity={0.85}
+                            onPress={() => navigation.navigate("OrderDetails", { order: activeOrder })}
+                        >
+                            <Text style={styles.activeBtnText}>На месте</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Остальные заявки */}
                 <FlatList
-                    data={data}
+                    data={otherOrders}
                     keyExtractor={(i) => i.id}
-                    renderItem={renderCard}
+                    renderItem={renderOrder}
                     showsVerticalScrollIndicator={false}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{
-                        paddingHorizontal: 16,
-                    }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
                 />
             </View>
         </SafeAreaView>
     );
 }
 
+function statusLabel(s) {
+    switch (s) {
+        case "pending":
+            return "Ожидает принятия";
+        case "assigned":
+            return "Назначен водитель";
+        case "active":
+            return "Активная";
+        case "done":
+            return "Завершена";
+        case "canceled":
+            return "Отменена";
+        default:
+            return "—";
+    }
+}
+
+function formatDate(iso) {
+    if (!iso) return "—";
+    try {
+        return new Date(iso).toLocaleString("ru-RU", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } catch {
+        return "—";
+    }
+}
+
+// «Через N мин.» из даты заявки (если в прошлом — «Скоро»)
+function etaFromDate(iso) {
+    if (!iso) return "Скоро";
+    const now = Date.now();
+    const t = +new Date(iso);
+    const diffMin = Math.round((t - now) / 60000);
+    if (isNaN(diffMin)) return "Скоро";
+    if (diffMin <= 0) return "Скоро";
+    return `Через ${diffMin} мин.`;
+}
+
 const styles = StyleSheet.create({
     safe: { flex: 1, backgroundColor: "#FFFFFF" },
     container: { flex: 1 },
 
-    // Шапка (фиксированная)
-    header: { paddingHorizontal: 16, backgroundColor: "#FFFFFF" },
-
-    // Поиск
+    header: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 16,
+        paddingBottom: 8,
+        paddingTop: 8,
+        backgroundColor: "#FFFFFF",
+    },
     searchBox: {
-        flexDirection: "row", alignItems: "center",
-        backgroundColor: "#F4F6FA", borderRadius: 12, paddingHorizontal: 12, height: 40,
-        borderWidth: 1, borderColor: "#E6EAF0",
+        flex: 1,
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F4F6FA",
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        height: 40,
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
     },
-    searchInput: { flex: 1, marginLeft: 8, paddingVertical: 0, color: "#0D1220" },
+    searchInput: { flex: 1, paddingVertical: 0, color: "#0D1220" },
+    bellBtn: { marginLeft: 10, padding: 6, borderRadius: 10 },
 
-    // Чипы
-    chipsRow: { flexDirection: "row", marginTop: 12 },
-    chip: {
-        paddingHorizontal: 12, height: 32, borderRadius: 16,
-        borderWidth: 1, borderColor: "#E3E8EF", backgroundColor: "#FFFFFF",
-        alignItems: "center", justifyContent: "center", marginRight: 8,
+    activeCard: {
+        marginTop: 8,
+        marginBottom: 12,
+        marginHorizontal: 16,
+        backgroundColor: "#2563eb",
+        borderRadius: 16,
+        padding: 16,
     },
-    chipActive: { backgroundColor: "#0B0F10", borderColor: "#0B0F10" },
-    chipText: { color: "#0B0F10" },
-    chipTextActive: { color: "#FFFFFF", fontWeight: "700" },
-
-    // Карточка
-    card: {
-        backgroundColor: "#FFFFFF", borderRadius: 16, padding: 12, marginBottom: 12,
-        borderWidth: 1, borderColor: "#E6EAF0",
-        shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
-    },
-    cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-
-    statusPill: { paddingHorizontal: 10, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-    pillYellow: { backgroundColor: "#FFD400" },
-    pillBlue: { backgroundColor: "#2F6BFF" },
-    pillRed: { backgroundColor: "#E53935" },
-    pillGreen: { backgroundColor: "#43A047" },
-    pillText: { fontSize: 12, fontWeight: "700", color: "#0D1220" },
-
+    activeEta: { color: "#fff", fontSize: 16, fontWeight: "600", marginBottom: 8 },
     row: { flexDirection: "row", alignItems: "center" },
-    dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-    addr: { color: "#0D1220", flex: 1 },
+    activeFrom: { color: "#FFFFFF", fontSize: 15, fontWeight: "600", marginLeft: 8, flex: 1 },
+    activeTo: { color: "#E9F0FF", fontSize: 15, marginLeft: 8, flex: 1 },
 
-    avatar: { width: 28, height: 28, borderRadius: 14, marginRight: 8 },
+    activeBtn: {
+        marginTop: 12,
+        backgroundColor: "#FFFFFF",
+        paddingVertical: 10,
+        borderRadius: 20,
+    },
+    activeBtnText: {
+        textAlign: "center",
+        color: "#2563eb",
+        fontWeight: "700",
+        fontSize: 15,
+    },
+
+    card: {
+        backgroundColor: "#FFFFFF",
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: "#E6EAF0",
+        shadowColor: "#000",
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 2,
+    },
+    addrFrom: { color: "#0D1220", fontSize: 15, fontWeight: "600", marginLeft: 8, flex: 1 },
+    addrTo: { color: "#374151", fontSize: 15, marginLeft: 8, flex: 1 },
+    avatar: { width: 24, height: 24, borderRadius: 12, marginRight: 8 },
+    avatarPlaceholder: { backgroundColor: "#F3F4F6", alignItems: "center", justifyContent: "center" },
     driverName: { color: "#0D1220", fontWeight: "600" },
-    badge: { color: "#2F6BFF", fontWeight: "700" },
+    badge: { color: "#2F6BFF", fontWeight: "700", marginLeft: 6 },
     rating: { color: "#0D1220", marginLeft: 2 },
-
-    sectionTitle: { marginTop: 12, color: "#8E98A3", fontSize: 12, fontWeight: "700" },
-    noteBox: { backgroundColor: "#F1F3F6", minHeight: 36, borderRadius: 8, justifyContent: "center", paddingHorizontal: 10, marginTop: 6 },
-    noteText: { color: "#656F7B" },
-
-    date: { marginTop: 10, color: "#8E98A3", fontSize: 12 },
+    meta: { color: "#8E98A3", fontSize: 12, marginTop: 10 },
 });

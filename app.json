@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "kars-drive-dispatcher",
-    "slug": "kars-drive-dispatcher",
+    "name": "kars-drive-driver",
+    "slug": "kars-drive-driver",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
