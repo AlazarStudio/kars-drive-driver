@@ -1,5 +1,5 @@
 // src/screens/ProfileScreen.js
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -11,13 +11,46 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ProfileScreen({ navigation }) {
   const user = {
     name: "ФИО водителя",
     phone: "+7 (000) 000 00 00",
     email: "example@gmail.com",
-    avatar: null, // подставь uri, если появится фото
+    avatar: null,
+  };
+
+  // состояние смены
+  const [isOnShift, setIsOnShift] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem("driver:isOnShift");
+        setIsOnShift(saved === "1");
+      } catch {}
+    })();
+  }, []);
+
+  const goOnline = async () => {
+    try {
+      // TODO: await api.goOnline()
+      await AsyncStorage.setItem("driver:isOnShift", "1");
+      setIsOnShift(true);
+    } catch (e) {
+      Alert.alert("Ошибка", "Не удалось выйти на смену");
+    }
+  };
+
+  const goOffline = async () => {
+    try {
+      // TODO: await api.goOffline()
+      await AsyncStorage.setItem("driver:isOnShift", "0");
+      setIsOnShift(false);
+    } catch (e) {
+      Alert.alert("Ошибка", "Не удалось завершить смену");
+    }
   };
 
   const onSettings = () => navigation.navigate("Settings");
@@ -25,7 +58,7 @@ export default function ProfileScreen({ navigation }) {
   const onLogout = () => Alert.alert("Выход", "Выйти из аккаунта?");
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       {/* header с колокольчиком справа */}
       <View style={styles.header}>
         <View style={{ width: 24 }} />
@@ -49,7 +82,7 @@ export default function ProfileScreen({ navigation }) {
         {/* Имя */}
         <Text style={styles.name}>{user.name}</Text>
 
-        {/* Поля — как в макете, не редактируемые сейчас */}
+        {/* Поля */}
         <Text style={styles.label}>НОМЕР ТЕЛЕФОНА</Text>
         <View style={styles.field}>
           <TextInput editable={false} value={user.phone} style={styles.fieldInput} />
@@ -60,7 +93,7 @@ export default function ProfileScreen({ navigation }) {
           <TextInput editable={false} value={user.email} style={styles.fieldInput} />
         </View>
 
-        {/* Блок управления аккаунтом */}
+        {/* Управление аккаунтом */}
         <Text style={[styles.sectionTitle, { marginTop: 22 }]}>УПРАВЛЕНИЕ АККАУНТОМ</Text>
 
         <View style={styles.card}>
@@ -90,6 +123,19 @@ export default function ProfileScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Нижняя кнопка смены */}
+      <View style={styles.bottomBar}>
+        {isOnShift ? (
+          <TouchableOpacity style={[styles.fullBtn, styles.secondary]} onPress={goOffline} activeOpacity={0.9}>
+            <Text style={styles.secondaryText}>Завершить смену</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.fullBtn, styles.primary]} onPress={goOnline} activeOpacity={0.9}>
+            <Text style={styles.primaryText}>Выйти на смену</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -118,7 +164,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#E53935",
   },
 
-  container: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  container: { flex: 1, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 90 },
 
   avatarWrap: { alignItems: "center", marginTop: 6 },
   avatar: { width: 104, height: 104, borderRadius: 52 },
@@ -167,4 +213,16 @@ const styles = StyleSheet.create({
   rowLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   rowText: { color: "#0D1220", fontSize: 16, fontWeight: "600" },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: "#E6EAF0", marginHorizontal: 12 },
+
+  // нижняя панель с кнопкой
+  bottomBar: {
+    position: "absolute", left: 0, right: 0, bottom: 0,
+    padding: 16, backgroundColor: "#fff",
+    borderTopWidth: 1, borderTopColor: "#E6EAF0",
+  },
+  fullBtn: { height: 52, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  primary: { backgroundColor: "#2F6BFF" },
+  primaryText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  secondary: { backgroundColor: "#EEF2F7" },
+  secondaryText: { color: "#0D1220", fontSize: 16, fontWeight: "700" },
 });
