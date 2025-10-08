@@ -9,9 +9,10 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline, UrlTile, PROVIDER_DEFAULT } from "react-native-maps";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -36,14 +37,25 @@ async function geocodeSmart(address) {
 }
 
 // Маршрут по дорогам (OSRM)
+// async function fetchOsrmRoute(origin, destination) {
+//   const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson&alternatives=false&steps=false`;
+//   const res = await fetch(url);
+//   if (!res.ok) throw new Error("OSRM request failed");
+//   const data = await res.json();
+//   const coords = data.routes?.[0]?.geometry?.coordinates || [];
+//   return coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+// }
+
 async function fetchOsrmRoute(origin, destination) {
-  const url = `https://router.project-osrm.org/route/v1/driving/${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}?overview=full&geometries=geojson&alternatives=false&steps=false`;
-  const res = await fetch(url);
+  const coords = `${origin.longitude},${origin.latitude};${destination.longitude},${destination.latitude}`;
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=full&geometries=geojson&alternatives=false&steps=false`;
+  const res = await fetch(url, { headers: { "User-Agent": "karsavia-driver-app" } });
   if (!res.ok) throw new Error("OSRM request failed");
   const data = await res.json();
-  const coords = data.routes?.[0]?.geometry?.coordinates || [];
-  return coords.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+  const line = data?.routes?.[0]?.geometry?.coordinates ?? [];
+  return line.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
 }
+
 
 // расстояние между точками (метры)
 function distMeters(a, b) {
@@ -246,8 +258,8 @@ export default function TripScreen({ navigation, route }) {
 
   const primaryLabel =
     stage === "to_pickup" ? "Я на месте"
-    : stage === "at_pickup" ? "Начать поездку"
-    : "Завершить поездку";
+      : stage === "at_pickup" ? "Начать поездку"
+        : "Завершить поездку";
 
   const onPrimary = () => {
     if (stage === "to_pickup") {
@@ -308,17 +320,30 @@ export default function TripScreen({ navigation, route }) {
         ref={mapRef}
         style={{ flex: 1 }}
         initialRegion={initialRegion}
+        provider={PROVIDER_DEFAULT}
         showsUserLocation
-        showsMyLocationButton={false} 
+        showsMyLocationButton={false}
         followsUserLocation={false}
-        onPanDrag={onMapPan}              // <-- ручной пан → выключаем follow
+        mapType={Platform.OS === "android" ? "none" : "standard"}
+        onPanDrag={onMapPan}            // <-- ручной пан → выключаем follow
       >
+        <UrlTile
+          urlTemplate="https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key=8HWaIwB79iEATnrrvKVH"
+          maximumZ={19}
+          zIndex={-1}
+        />
         {pickup && <Marker coordinate={pickup} title="Точка подачи" />}
         {dropoff && <Marker coordinate={dropoff} pinColor="green" title="Пункт назначения" />}
         {routeCoords.length >= 2 && (
           <Polyline coordinates={routeCoords} strokeWidth={4} strokeColor="#2F6BFF" />
         )}
       </MapView>
+      <View style={styles.osmAttribution}>
+        <Text style={styles.osmText}>
+          © OpenStreetMap contributors · MapTiler
+        </Text>
+      </View>
+
 
       {loadingRoute && (
         <View style={styles.loading}>
@@ -348,7 +373,7 @@ export default function TripScreen({ navigation, route }) {
         <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>Оцените поездку</Text>
           <View style={{ flexDirection: "row", justifyContent: "center", marginVertical: 10 }}>
-            {[1,2,3,4,5].map(n => (
+            {[1, 2, 3, 4, 5].map(n => (
               <TouchableOpacity key={n} onPress={() => setRating(n)} style={{ padding: 6 }}>
                 <Ionicons name="star" size={28} color={n <= rating ? "#F5B000" : "#D2D8DE"} />
               </TouchableOpacity>
@@ -385,7 +410,7 @@ const styles = StyleSheet.create({
 
   bottomBar: {
     position: "absolute", left: 0, right: 0, bottom: 0,
-    padding: 16, 
+    padding: 16,
     paddingBottom: 32,
     backgroundColor: "#fff",
     borderTopWidth: 1, borderTopColor: "#E6EAF0",
@@ -428,4 +453,17 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 8,
   },
   sheetTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
+  osmAttribution: {
+    position: "absolute",
+    bottom: 100,
+    right: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    zIndex: 999,
+  },
+  osmText: {
+    fontSize: 12,
+    color: "#333",
+  },
+
 });
